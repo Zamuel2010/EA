@@ -1,0 +1,107 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isStaff() { return isSignedIn() && exists(/databases/$(database)/documents/Staff/$(request.auth.uid)); }
+    
+    function isValidStudent(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'current_class', 'ca_score', 'exam_score', 'total_score', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['id', 'name', 'email', 'current_class', 'ca_score', 'exam_score', 'total_score', 'createdAt', 'updatedAt', 'results']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.current_class is string && data.current_class.size() <= 50 &&
+             data.ca_score is number &&
+             data.exam_score is number &&
+             data.total_score is number &&
+             data.createdAt is timestamp && 
+             data.updatedAt is timestamp;
+    }
+
+    function isValidStaff(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'assigned_class', 'createdAt', 'updatedAt']) &&
+             data.keys().size() == 6 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.assigned_class is string && data.assigned_class.size() <= 50 &&
+             data.createdAt is timestamp && 
+             data.updatedAt is timestamp;
+    }
+
+    function isValidResource(data) {
+      return data.keys().hasAll(['id', 'staffId', 'class_name', 'title', 'type', 'url', 'createdAt', 'updatedAt']) &&
+             data.keys().size() == 8 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.staffId is string && data.staffId.size() <= 128 &&
+             data.class_name is string && data.class_name.size() <= 50 &&
+             data.title is string && data.title.size() <= 150 &&
+             data.type is string && data.type.size() <= 20 &&
+             data.url is string && data.url.size() <= 500 &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    match /Students/{studentId} {
+      allow get: if isSignedIn() && (studentId == request.auth.uid || isStaff());
+      allow list: if isSignedIn() && (resource.data.id == request.auth.uid || isStaff());
+      
+      allow create: if isSignedIn() && isValidId(studentId) && isValidStudent(incoming()) && 
+                    incoming().id == request.auth.uid &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time;
+      
+      allow update: if isSignedIn() && isValidId(studentId) && isValidStudent(incoming()) &&
+                    incoming().id == existing().id &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().updatedAt == request.time &&
+                    (
+                      (studentId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'updatedAt'])) ||
+                      (isStaff() && incoming().diff(existing()).affectedKeys().hasOnly(['ca_score', 'exam_score', 'total_score', 'current_class', 'updatedAt', 'results']))
+                    );
+    }
+
+    match /Staff/{staffId} {
+      allow get: if isSignedIn() && staffId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.id == request.auth.uid;
+
+      allow create: if isSignedIn() && isValidId(staffId) && isValidStaff(incoming()) &&
+                    incoming().id == request.auth.uid &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time;
+      
+      allow update: if isSignedIn() && isValidId(staffId) && isValidStaff(incoming()) &&
+                    staffId == request.auth.uid &&
+                    incoming().id == existing().id &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().updatedAt == request.time &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'assigned_class', 'updatedAt']);
+    }
+
+    match /Resources/{resourceId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && resource.data.class_name is string;
+      
+      allow create: if isSignedIn() && isStaff() && isValidId(resourceId) && isValidResource(incoming()) &&
+                    incoming().staffId == request.auth.uid &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn() && isStaff() && isValidId(resourceId) && isValidResource(incoming()) &&
+                    incoming().staffId == request.auth.uid && existing().staffId == request.auth.uid &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().updatedAt == request.time &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['title', 'type', 'url', 'class_name', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isStaff() && existing().staffId == request.auth.uid;
+    }
+  }
+}

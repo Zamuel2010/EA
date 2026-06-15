@@ -1,0 +1,65 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "Student profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "current_class": { "type": "string" },
+        "ca_score": { "type": "number" },
+        "exam_score": { "type": "number" },
+        "total_score": { "type": "number" },
+        "createdAt": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": ["id", "name", "email", "current_class", "ca_score", "exam_score", "total_score", "createdAt", "updatedAt"]
+    },
+    "Staff": {
+      "title": "Staff",
+      "description": "Staff profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "assigned_class": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": ["id", "name", "email", "assigned_class", "createdAt", "updatedAt"]
+    },
+    "Resource": {
+      "title": "Resource",
+      "description": "Learning resources",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "staffId": { "type": "string" },
+        "class_name": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["pdf", "video"] },
+        "url": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": ["id", "staffId", "class_name", "title", "type", "url", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "Students/{studentId}": {
+      "schema": "Student",
+      "description": "Stores student profiles"
+    },
+    "Staff/{staffId}": {
+      "schema": "Staff",
+      "description": "Stores staff profiles"
+    },
+    "Resources/{resourceId}": {
+      "schema": "Resource",
+      "description": "Stores learning materials"
+    }
+  }
+}
